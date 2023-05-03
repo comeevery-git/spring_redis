@@ -1,5 +1,6 @@
 package com.example.ticket.concurrency.domain.applier.service.impl;
 
+import com.example.ticket.concurrency.config.RedisLock;
 import com.example.ticket.concurrency.domain.applier.entity.Applier;
 import com.example.ticket.concurrency.domain.applier.entity.Campaign;
 import com.example.ticket.concurrency.domain.applier.entity.request.ReqApply;
@@ -13,6 +14,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
+import javax.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -23,6 +25,7 @@ import java.util.*;
 public class ApplierServiceImpl implements ApplierService {
 
     private final RedisTemplate redisTemplate;
+    private final RedisLock redisLock;
     private final CampaignRepository campaignRepository;
 
     private final ObjectMapper objectMapper;
@@ -33,49 +36,64 @@ public class ApplierServiceImpl implements ApplierService {
     }
 
     @Override
+    @Transactional
     public Long apply(ReqApply req) throws Exception {
+        ZSetOperations<String, Object> zSetOperations = redisTemplate.opsForZSet();
+
         Long campaignId = req.getCampaignId();
         log.info("campaignId: {}", campaignId);
+        String key = "applier:apply:" + campaignId;
 
-        ZSetOperations<String, Object> zSetOperations = redisTemplate.opsForZSet();
-        LocalDateTime now = LocalDateTime.now();
-        String key = "applier:apply:" + req.getCampaignId();
-
-        Campaign campaign = campaignRepository.findById(campaignId).orElse(null);
-        log.info("campaign: {}", campaign.toString());
-
-        Long maxApplierCount = campaign.getMaxApplierCount();
-        Set<Object> alreadyCampaignApply = zSetOperations.range(key, 0, maxApplierCount);
-        if (alreadyCampaignApply.size() >= maxApplierCount) {
-            throw new RuntimeException("이미 신청이 마감되었습니다.");
-        }
-        Integer rank = 1;
-        Set<Object> alreadyCampaignApplyLast = zSetOperations.range(key, alreadyCampaignApply.size() - 1, alreadyCampaignApply.size());
-        if(!alreadyCampaignApplyLast.isEmpty()) {
-            Applier applierLast = null;
-            try {
-                applierLast = objectMapper.readValue(alreadyCampaignApplyLast.iterator().next().toString(), Applier.class);
-            } catch (JsonProcessingException e) {
-                e.printStackTrace();
-            }
-            if(applierLast.getMemberId().equals(req.getMemberId())) {
-                throw new RuntimeException("이미 신청하셨습니다.");
-            }
-            rank = applierLast.getRank() + 1;
-        }
-
-            Applier applier = Applier.builder()
-                    .rank(rank)
-                    .campaignId(req.getCampaignId())
-                    .memberId(req.getMemberId())
-                    .name(req.getName())
-                    .applyTime(now)
-                    .build();
+        while (!redisLock.lock(campaignId)) {
+            log.info("대기중..." + campaignId);
+            Thread.sleep(100);
+        } // 락을 획득하기 위해 대기
 
         try {
-            zSetOperations.add(key, objectMapper.writeValueAsString(applier), rank);
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
+            LocalDateTime now = LocalDateTime.now();
+
+            Optional<Campaign> campaignOptional = campaignRepository.findById(campaignId);
+                campaignOptional.ifPresent(campaign -> {
+                log.info("campaign: {}", campaign);
+
+                Long maxApplierCount = campaign.getMaxApplierCount();
+                Set<Object> alreadyCampaignApply = zSetOperations.range(key, 0, maxApplierCount);
+                if (alreadyCampaignApply.size() >= maxApplierCount) {
+                    throw new RuntimeException("이미 신청이 마감되었습니다.");
+                }
+
+                Integer rank = 1;
+                Set<Object> alreadyCampaignApplyLast = zSetOperations.range(key, alreadyCampaignApply.size() - 1, alreadyCampaignApply.size());
+                if(!alreadyCampaignApplyLast.isEmpty()) {
+                    Applier applierLast = null;
+                    try {
+                        applierLast = objectMapper.readValue(alreadyCampaignApplyLast.iterator().next().toString(), Applier.class);
+                    } catch (JsonProcessingException e) {
+                        e.printStackTrace();
+                    }
+                    if(applierLast.getMemberId().equals(req.getMemberId())) {
+                        throw new RuntimeException("이미 신청하셨습니다.");
+                    }
+                    rank = applierLast.getRank() + 1;
+                }
+
+                Applier applier = Applier.builder()
+                        .rank(rank)
+                        .campaignId(req.getCampaignId())
+                        .memberId(req.getMemberId())
+                        .name(req.getName())
+                        .applyTime(now)
+                        .build();
+
+                try {
+                    zSetOperations.add(key, objectMapper.writeValueAsString(applier), rank);
+                } catch (JsonProcessingException e) {
+                    e.printStackTrace();
+                }
+            });
+
+        } finally {
+            redisLock.unlock(campaignId);
         }
 
         if(zSetOperations.size(key) != null) {
