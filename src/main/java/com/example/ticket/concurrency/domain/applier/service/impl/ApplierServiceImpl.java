@@ -44,10 +44,10 @@ public class ApplierServiceImpl implements ApplierService {
         log.info("campaignId: {}", campaignId);
         String key = "applier:apply:" + campaignId;
 
-        while (!redisLock.lock(campaignId)) {
-            log.info("대기중..." + campaignId);
-            Thread.sleep(100);
-        } // 락을 획득하기 위해 대기
+        boolean isLocked = redisLock.lock(campaignId);
+        if (!isLocked) {
+            throw new RuntimeException("Failed to acquire lock");
+        } // 락을 획득하기 위해 무한반복 요청하지 않고 주기적으로 요청
 
         try {
             LocalDateTime now = LocalDateTime.now();
