@@ -5,16 +5,19 @@ import com.example.ticket.concurrency.domain.applier.entity.Campaign;
 import com.example.ticket.concurrency.domain.applier.entity.request.ReqApply;
 import com.example.ticket.concurrency.domain.applier.repository.CampaignRepository;
 import com.example.ticket.concurrency.domain.applier.service.ApplierService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Set;
+import java.util.*;
 
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class ApplierServiceImpl implements ApplierService {
@@ -25,30 +28,39 @@ public class ApplierServiceImpl implements ApplierService {
     private final ObjectMapper objectMapper;
 
     @Override
+    public void applyBase() {
+        createCampaign();
+    }
+
+    @Override
     public Long apply(ReqApply req) throws Exception {
-        Campaign campaign = createCampaign();
+        Long campaignId = req.getCampaignId();
+        log.info("campaignId: {}", campaignId);
 
         ZSetOperations<String, Object> zSetOperations = redisTemplate.opsForZSet();
         LocalDateTime now = LocalDateTime.now();
         String key = "applier:apply:" + req.getCampaignId();
 
-//        Optional<Campaign> campaignOptional = campaignRepository.findById(req.getCampaignId());
-//        campaignOptional.ifPresent(campaign -> {
+        Campaign campaign = campaignRepository.findById(campaignId).orElse(null);
+        log.info("campaign: {}", campaign.toString());
+
         Long maxApplierCount = campaign.getMaxApplierCount();
         Set<Object> alreadyCampaignApply = zSetOperations.range(key, 0, maxApplierCount);
         if (alreadyCampaignApply.size() >= maxApplierCount) {
             throw new RuntimeException("이미 신청이 마감되었습니다.");
         }
-
         Integer rank = 1;
         Set<Object> alreadyCampaignApplyLast = zSetOperations.range(key, alreadyCampaignApply.size() - 1, alreadyCampaignApply.size());
         if(!alreadyCampaignApplyLast.isEmpty()) {
-            Applier applierLast = objectMapper.readValue(alreadyCampaignApplyLast.iterator().next().toString(), Applier.class);
-
+            Applier applierLast = null;
+            try {
+                applierLast = objectMapper.readValue(alreadyCampaignApplyLast.iterator().next().toString(), Applier.class);
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
+            }
             if(applierLast.getMemberId().equals(req.getMemberId())) {
                 throw new RuntimeException("이미 신청하셨습니다.");
             }
-
             rank = applierLast.getRank() + 1;
         }
 
@@ -60,8 +72,11 @@ public class ApplierServiceImpl implements ApplierService {
                     .applyTime(now)
                     .build();
 
-        zSetOperations.add(key, objectMapper.writeValueAsString(applier), rank);
-//        });
+        try {
+            zSetOperations.add(key, objectMapper.writeValueAsString(applier), rank);
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
 
         if(zSetOperations.size(key) != null) {
             return zSetOperations.size(key);
@@ -70,12 +85,30 @@ public class ApplierServiceImpl implements ApplierService {
         }
     }
 
-    private Campaign createCampaign() {
-        Campaign campaign = Campaign.builder()
-                .campaignId(20010L)
+    private void createCampaign() {
+        List<Campaign> campaigns = new ArrayList<>();
+        Campaign campaign1 = Campaign.builder()
+                .campaignId(1L)
                 .maxApplierCount(3L)
                 .build();
-        return campaignRepository.save(campaign);
+        campaigns.add(campaign1);
+        Campaign campaign2 = Campaign.builder()
+                .campaignId(2L)
+                .maxApplierCount(10L)
+                .build();
+        campaigns.add(campaign2);
+        Campaign campaign3 = Campaign.builder()
+                .campaignId(3L)
+                .maxApplierCount(50L)
+                .build();
+        campaigns.add(campaign3);
+        Campaign campaign4 = Campaign.builder()
+                .campaignId(4L)
+                .maxApplierCount(100L)
+                .build();
+        campaigns.add(campaign4);
+
+        campaignRepository.saveAll(campaigns);
     }
 
 }

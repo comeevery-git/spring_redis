@@ -38,7 +38,7 @@ class ApplierControllerTest {
 
         // given
         Random random = new Random();
-        Long campaignId = 20010L;
+        Long campaignId = 1L;
         Long memberPid = random.nextLong(1000000);
         String name = randomName();
         ReqApply reqApply = ReqApply.builder()

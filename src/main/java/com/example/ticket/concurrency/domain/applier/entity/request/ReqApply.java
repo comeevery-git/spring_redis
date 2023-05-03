@@ -12,7 +12,7 @@ import lombok.ToString;
 public class ReqApply {
     private Long campaignId;
     private Long memberId;
-    private Long applierMemberId;
     private String name;
+    private Long applierMemberId;
 
 }
