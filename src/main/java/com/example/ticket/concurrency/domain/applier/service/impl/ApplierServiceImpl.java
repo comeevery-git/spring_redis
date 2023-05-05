@@ -1,10 +1,10 @@
 package com.example.ticket.concurrency.domain.applier.service.impl;
 
 import com.example.ticket.concurrency.domain.applier.entity.Applier;
-import com.example.ticket.concurrency.domain.applier.entity.Campaign;
 import com.example.ticket.concurrency.domain.applier.entity.request.ReqApply;
-import com.example.ticket.concurrency.domain.applier.repository.CampaignRepository;
 import com.example.ticket.concurrency.domain.applier.service.ApplierService;
+import com.example.ticket.concurrency.domain.campaign.entity.Campaign;
+import com.example.ticket.concurrency.domain.campaign.service.CampaignQueryService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -24,26 +24,30 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 @Service
 public class ApplierServiceImpl implements ApplierService {
-
     private final RedisTemplate redisTemplate;
     private final RedissonClient redissonClient;
-    private final CampaignRepository campaignRepository;
+    private final CampaignQueryService campaignQueryService;
     private final ObjectMapper objectMapper;
 
-    @Override
-    public void applyBase() {
-        createCampaign();
-    }
 
+    /**
+     * 지원하기
+     * @param req
+     * @return
+     * @throws Exception
+     */
     @Override
     public Long apply(ReqApply req) throws Exception {
+        // Redis Sorted Set
         ZSetOperations<String, Object> zSetOperations = redisTemplate.opsForZSet();
+
         Long campaignId = req.getCampaignId();
-        log.info("campaignId: {}", campaignId);
         LocalDateTime now = LocalDateTime.now();
         String key = "applier:apply:" + req.getCampaignId();
+        log.info("campaignId: {}, Redis key: {}", campaignId, key);
 
-        Campaign campaign = campaignRepository.findById(campaignId).orElse(null);
+        // 캠페인 정보 조회
+        Campaign campaign = applyToCampaign(campaignId);
         Long maxApplierCount = campaign.getMaxApplierCount();
         log.info("maxApplierCount: {}", maxApplierCount);
 
@@ -54,7 +58,7 @@ public class ApplierServiceImpl implements ApplierService {
             if (isLocked) {
                 Set<Object> alreadyCampaignApply = zSetOperations.range(key, 0, maxApplierCount);
                 if (alreadyCampaignApply.size() >= maxApplierCount) {
-                    throw new RuntimeException("이미 신청이 마감되었습니다.");
+                    throw new Exception("이미 신청이 마감되었습니다.");
                 }
                 Integer rank = 1;
                 Set<Object> alreadyCampaignApplyLast = zSetOperations.range(key, alreadyCampaignApply.size() - 1, alreadyCampaignApply.size());
@@ -66,7 +70,7 @@ public class ApplierServiceImpl implements ApplierService {
                         e.printStackTrace();
                     }
                     if(applierLast.getMemberId().equals(req.getMemberId())) {
-                        throw new RuntimeException("이미 신청하셨습니다.");
+                        throw new Exception("이미 신청하셨습니다.");
                     }
                     rank = applierLast.getRank() + 1;
                 }
@@ -95,6 +99,7 @@ public class ApplierServiceImpl implements ApplierService {
             }
         }
 
+        // Redis 해당 key 총 size 반환
         if(zSetOperations.size(key) != null) {
             return zSetOperations.size(key);
         } else {
@@ -102,30 +107,9 @@ public class ApplierServiceImpl implements ApplierService {
         }
     }
 
-    private void createCampaign() {
-        List<Campaign> campaigns = new ArrayList<>();
-        Campaign campaign1 = Campaign.builder()
-                .campaignId(1L)
-                .maxApplierCount(3L)
-                .build();
-        campaigns.add(campaign1);
-        Campaign campaign2 = Campaign.builder()
-                .campaignId(2L)
-                .maxApplierCount(10L)
-                .build();
-        campaigns.add(campaign2);
-        Campaign campaign3 = Campaign.builder()
-                .campaignId(3L)
-                .maxApplierCount(50L)
-                .build();
-        campaigns.add(campaign3);
-        Campaign campaign4 = Campaign.builder()
-                .campaignId(4L)
-                .maxApplierCount(100L)
-                .build();
-        campaigns.add(campaign4);
 
-        campaignRepository.saveAll(campaigns);
+    public Campaign applyToCampaign(Long campaignId) throws Exception {
+        return campaignQueryService.getCampaignById(campaignId);
     }
 
 }

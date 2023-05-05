@@ -1,4 +1,4 @@
-package com.example.ticket.concurrency.domain.applier.entity;
+package com.example.ticket.concurrency.domain.member.entity;
 
 
 import lombok.*;

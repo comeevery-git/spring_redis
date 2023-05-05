@@ -12,20 +12,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/applier")
 public class ApplierController {
-
     private final ApplierService applierService;
 
-    @PostMapping("/base")
-    public void applyBase() throws Exception {
-        applierService.applyBase();
-    }
 
     @PostMapping("/apply")
     public Long apply(@RequestBody ReqApply reqApply) throws Exception {
         Long totalApplier = applierService.apply(reqApply);
-
         return totalApplier;
     }
-
 
 }
