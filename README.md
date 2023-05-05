@@ -9,8 +9,9 @@
 
 ###branch
   - master
-    - 동시성 이슈발생 상황 커밋 56eb192a 
-    - 기본적으로 branch feature/redisson Merge
+    - 기본적으로 feature/redisson Merge
+  - issue
+    - 동시성 이슈발생 상황 커밋 56eb192a
   - feature
     - lettuce: lettuce client 사용
     - redisson: redisson client 사용
