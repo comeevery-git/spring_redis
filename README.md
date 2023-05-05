@@ -9,10 +9,10 @@
 
 ###branch
   - master
-    - 기본적으로 feature/redisson Merge
+    - 기본적으로 redisson Merge
   - issue
     - 동시성 이슈발생 상황 커밋 56eb192a
-  - feature
+  - client
     - lettuce: lettuce client 사용
     - redisson: redisson client 사용
 
