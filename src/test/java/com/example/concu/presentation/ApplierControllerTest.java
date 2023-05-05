@@ -1,6 +1,6 @@
-package com.example.concu.applier.controller;
+package com.example.concu.presentation;
 
-import com.example.concu.presentation.dto.ReqApply;
+import com.example.concu.domain.applier.dto.ReqApply;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -26,16 +27,26 @@ class ApplierControllerTest {
     private MockMvc mockMvc;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     @BeforeEach
     void setUp() {
+        try {
+            mockMvc.perform(post("/campaigns")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .accept(MediaType.APPLICATION_JSON));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
     @DisplayName("지원하기")
     void applyTest() throws Exception {
-
         // given
+        redisTemplate.delete("applier:apply:1");
+
         Random random = new Random();
         Long campaignId = 1L;
         Long memberPid = random.nextLong(1000000);

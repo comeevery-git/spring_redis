@@ -1,13 +1,13 @@
 # Redis 사용기록
 
 ## 개요
-###주요내용
+### 주요내용
 - Redis 사용했던 경험 기록
   - lock, cache, pub/sub
 - 테스트 코드
 - 새로 적용한 기록
 
-###branch
+### branch
   - master
     - 기본적으로 redisson Merge
   - issue
