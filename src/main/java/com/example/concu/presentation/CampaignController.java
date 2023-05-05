@@ -21,12 +21,14 @@ public class CampaignController {
         return result;
     }
 
+
     @GetMapping
     @Cacheable(value = "campaigns", key = "#root.methodName")
     public List<CampaignInfo> getCampaigns() throws Exception {
         List<CampaignInfo> resultList = campaignService.getCampaigns();
         return resultList;
     }
+
 
     @PostMapping
     public void createCampaigns() throws Exception {

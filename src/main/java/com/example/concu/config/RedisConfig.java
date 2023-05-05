@@ -18,8 +18,8 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
 
-@Configuration("RedisConfig")
 @EnableCaching
+@Configuration("RedisConfig")
 public class RedisConfig extends CachingConfigurerSupport {
 
     @Value("${spring.redis.host}")
@@ -57,6 +57,7 @@ public class RedisConfig extends CachingConfigurerSupport {
     }
 
 
+
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory redisConnectionFactory) {
         RedisCacheConfiguration redisCacheConfiguration = RedisCacheConfiguration.defaultCacheConfig()
@@ -65,5 +66,6 @@ public class RedisConfig extends CachingConfigurerSupport {
         return RedisCacheManager.builder(redisConnectionFactory)
                 .cacheDefaults(redisCacheConfiguration).build();
     }
+
 
 }
