@@ -15,6 +15,7 @@ public class Applier {
     private Long memberId;
     private String name;
     private LocalDateTime applyTime;
+    private String applierUserStatus;
 
     private Long applierMemberId;
 }

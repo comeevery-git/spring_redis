@@ -3,6 +3,8 @@ package com.example.concu.domain.applier.service.impl;
 import com.example.concu.application.CampaignApplicationService;
 import com.example.concu.domain.applier.dto.ReqApply;
 import com.example.concu.domain.applier.entity.Applier;
+import com.example.concu.domain.applier.entity.ApplierUser;
+import com.example.concu.domain.applier.repository.ApplierUserRepository;
 import com.example.concu.domain.applier.service.ApplierService;
 import com.example.concu.domain.campaign.entity.Campaign;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -11,9 +13,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -28,6 +35,7 @@ public class ApplierServiceImpl implements ApplierService {
     private final RedissonClient redissonClient;
     private final CampaignApplicationService campaignQueryService;
     private final ObjectMapper objectMapper;
+    private final ApplierUserRepository applierUserRepository;
 
 
     /**
@@ -37,6 +45,7 @@ public class ApplierServiceImpl implements ApplierService {
      * @throws Exception
      */
     @Override
+    @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
     public Long apply(ReqApply req) throws Exception {
         // Redis Sorted Set
         ZSetOperations<String, Object> zSetOperations = redisTemplate.opsForZSet();
@@ -81,17 +90,17 @@ public class ApplierServiceImpl implements ApplierService {
                         .memberId(req.getMemberId())
                         .name(req.getName())
                         .applyTime(now)
+                        .applierUserStatus("A")
                         .build();
 
-                try {
-                    zSetOperations.add(key, objectMapper.writeValueAsString(applier), rank);
-                } catch (JsonProcessingException e) {
-                    e.printStackTrace();
-                }
+                // 지원자 정보 DB 저장
+                createApplierUser(applier);
+                // 지원자 정보 Redis 저장
+                addApplierToQueue(key, applier, rank);
 
             } else {
                 // 락을 획득하지 못한 경우
-                throw new RuntimeException("Failed to acquire lock");
+                throw new Exception("Failed to acquire lock");
             }
         } finally {
             if (isLocked) {
@@ -110,6 +119,42 @@ public class ApplierServiceImpl implements ApplierService {
 
     public Campaign applyToCampaign(Long campaignId) throws Exception {
         return campaignQueryService.getCampaignById(campaignId);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void createApplierUser(Applier applier) throws Exception {
+        try {
+            ApplierUser applierUser = ApplierUser.builder()
+                    .campaignId(applier.getCampaignId())
+                    .memberId(applier.getMemberId())
+                    .applierUserStatus(applier.getApplierUserStatus())
+                    .build();
+            applierUserRepository.save(applierUser);
+        } catch (Exception e) {
+            log.error("Failed to save applierUser in DB.", e);
+            throw e;
+        }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void addApplierToQueue(String key, Applier applier, Integer rank) {
+        redisTemplate.execute(new SessionCallback<Object>() {
+            @Override
+            public Object execute(RedisOperations operations) throws DataAccessException {
+                operations.multi();
+                try {
+                    operations.opsForZSet().add(key, objectMapper.writeValueAsString(applier), rank);
+                } catch (JsonProcessingException e) {
+                    operations.discard();
+                    throw new RuntimeException("Failed to add applier to queue.", e);
+                } catch (Exception e) {
+                    operations.discard();
+                    e.printStackTrace();
+                }
+                operations.exec();
+                return null;
+            }
+        });
     }
 
 }
