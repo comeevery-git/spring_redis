@@ -1,6 +1,6 @@
-package com.example.concu.domain.applier.repository;
+package com.example.concu.infrastructure.applier.repository;
 
-import com.example.concu.domain.applier.entity.ApplierUser;
+import com.example.concu.infrastructure.applier.entity.ApplierUser;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 

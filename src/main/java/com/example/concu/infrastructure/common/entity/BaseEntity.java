@@ -1,4 +1,4 @@
-package com.example.concu.domain.applier.entity;
+package com.example.concu.infrastructure.common.entity;
 
 
 import java.time.LocalDateTime;

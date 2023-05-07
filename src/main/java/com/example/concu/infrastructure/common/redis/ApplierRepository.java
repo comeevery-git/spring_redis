@@ -1,6 +1,6 @@
-package com.example.concu.domain.applier.infrastructure.redis;
+package com.example.concu.infrastructure.common.redis;
 
-import com.example.concu.domain.applier.entity.Applier;
+import com.example.concu.infrastructure.applier.entity.Applier;
 import org.springframework.data.redis.repository.configuration.EnableRedisRepositories;
 import org.springframework.data.repository.CrudRepository;
 

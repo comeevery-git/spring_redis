@@ -1,12 +1,12 @@
 package com.example.concu.domain.applier.service.impl;
 
 import com.example.concu.application.CampaignApplicationService;
-import com.example.concu.domain.applier.dto.ReqApply;
-import com.example.concu.domain.applier.entity.Applier;
-import com.example.concu.domain.applier.entity.ApplierUser;
-import com.example.concu.domain.applier.repository.ApplierUserRepository;
+import com.example.concu.presentation.dto.ReqApply;
+import com.example.concu.infrastructure.applier.entity.Applier;
+import com.example.concu.infrastructure.applier.entity.ApplierUser;
+import com.example.concu.infrastructure.applier.repository.ApplierUserRepository;
 import com.example.concu.domain.applier.service.ApplierService;
-import com.example.concu.domain.campaign.entity.Campaign;
+import com.example.concu.infrastructure.campaign.entity.Campaign;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
