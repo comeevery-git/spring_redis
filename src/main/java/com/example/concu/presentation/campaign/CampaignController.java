@@ -1,4 +1,4 @@
-package com.example.concu.presentation;
+package com.example.concu.presentation.campaign;
 
 import com.example.concu.domain.campaign.dto.CampaignInfo;
 import com.example.concu.domain.campaign.service.CampaignService;

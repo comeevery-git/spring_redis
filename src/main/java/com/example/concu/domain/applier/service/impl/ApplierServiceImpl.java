@@ -1,7 +1,7 @@
 package com.example.concu.domain.applier.service.impl;
 
 import com.example.concu.application.CampaignApplicationService;
-import com.example.concu.presentation.dto.ReqApply;
+import com.example.concu.presentation.applier.dto.ReqApply;
 import com.example.concu.infrastructure.applier.entity.Applier;
 import com.example.concu.infrastructure.applier.entity.ApplierUser;
 import com.example.concu.infrastructure.applier.repository.ApplierUserRepository;

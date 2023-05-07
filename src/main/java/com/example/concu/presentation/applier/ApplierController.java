@@ -1,6 +1,6 @@
-package com.example.concu.presentation;
+package com.example.concu.presentation.applier;
 
-import com.example.concu.presentation.dto.ReqApply;
+import com.example.concu.presentation.applier.dto.ReqApply;
 import com.example.concu.domain.applier.service.ApplierService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;

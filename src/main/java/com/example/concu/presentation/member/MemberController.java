@@ -1,4 +1,4 @@
-package com.example.concu.presentation;
+package com.example.concu.presentation.member;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.RequestMapping;

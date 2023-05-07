@@ -1,6 +1,6 @@
 package com.example.concu.presentation;
 
-import com.example.concu.presentation.dto.ReqApply;
+import com.example.concu.presentation.applier.dto.ReqApply;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
