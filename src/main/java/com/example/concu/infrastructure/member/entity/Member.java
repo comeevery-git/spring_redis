@@ -1,4 +1,4 @@
-package com.example.concu.domain.member.entity;
+package com.example.concu.infrastructure.member.entity;
 
 
 import lombok.*;

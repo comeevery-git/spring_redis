@@ -1,8 +1,8 @@
 package com.example.concu.application.impl;
 
 import com.example.concu.application.CampaignApplicationService;
-import com.example.concu.domain.campaign.repository.CampaignRepository;
-import com.example.concu.domain.campaign.entity.Campaign;
+import com.example.concu.infrastructure.campaign.repository.CampaignRepository;
+import com.example.concu.infrastructure.campaign.entity.Campaign;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

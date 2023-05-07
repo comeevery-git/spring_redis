@@ -1,6 +1,6 @@
-package com.example.concu.domain.campaign.repository;
+package com.example.concu.infrastructure.campaign.repository;
 
-import com.example.concu.domain.campaign.entity.Campaign;
+import com.example.concu.infrastructure.campaign.entity.Campaign;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
