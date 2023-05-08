@@ -1,10 +1,11 @@
 package com.example.concu.infrastructure.applier.entity;
 
+import com.example.concu.infrastructure.applier.enums.ApplierUserStatus;
 import com.example.concu.infrastructure.common.entity.BaseEntity;
-import com.sun.istack.NotNull;
 import lombok.*;
 
 import javax.persistence.*;
+import javax.validation.constraints.NotNull;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -29,7 +30,8 @@ public class ApplierUser extends BaseEntity {
     private Long memberId;
 
     @NotNull
-    @Column(name = "applie_user_status", length = 1, columnDefinition = "varchar(1) default 'P'")
-    private String applierUserStatus;
+    @Column(name = "applier_user_status", length = 20)
+    @Enumerated(EnumType.STRING)
+    private ApplierUserStatus applierUserStatus;
 
 }

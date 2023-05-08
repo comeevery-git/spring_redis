@@ -1,5 +1,6 @@
 package com.example.concu.infrastructure.applier.entity;
 
+import com.example.concu.infrastructure.applier.enums.ApplierUserStatus;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -15,7 +16,7 @@ public class Applier {
     private Long memberId;
     private String name;
     private LocalDateTime applyTime;
-    private String applierUserStatus;
+    private ApplierUserStatus applierUserStatus;
 
     private Long applierMemberId;
 }

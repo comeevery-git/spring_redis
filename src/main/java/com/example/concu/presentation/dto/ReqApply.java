@@ -1,4 +1,4 @@
-package com.example.concu.presentation.applier.dto;
+package com.example.concu.presentation.dto;
 
 import lombok.Builder;
 import lombok.EqualsAndHashCode;

@@ -1,9 +1,9 @@
 package com.example.concu.config;
 
+import lombok.RequiredArgsConstructor;
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CachingConfigurerSupport;
 import org.springframework.cache.annotation.EnableCaching;
@@ -20,6 +20,7 @@ import java.time.Duration;
 
 @EnableCaching
 @Configuration("RedisConfig")
+@RequiredArgsConstructor
 public class RedisConfig extends CachingConfigurerSupport {
 
     @Value("${spring.redis.host}")
@@ -31,9 +32,11 @@ public class RedisConfig extends CachingConfigurerSupport {
     @Value("${spring.redis.password}")
     private String redisPassword;
 
-    @Autowired
-    private RedisConnectionFactory redisConnectionFactory;
+    private final RedisConnectionFactory redisConnectionFactory;
 
+    /**
+     * REDIS RedissonClient 설정
+     */
     @Bean
     public RedissonClient redissonClient() {
         Config config = new Config();
@@ -44,6 +47,9 @@ public class RedisConfig extends CachingConfigurerSupport {
         return Redisson.create(config);
     }
 
+    /**
+     * REDIS Template 설정
+     */
     @Bean
     public RedisTemplate<String, Object> redisTemplate() {
         RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
@@ -57,7 +63,9 @@ public class RedisConfig extends CachingConfigurerSupport {
     }
 
 
-
+    /**
+     * REDIS Cache 설정
+     */
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory redisConnectionFactory) {
         RedisCacheConfiguration redisCacheConfiguration = RedisCacheConfiguration.defaultCacheConfig()
