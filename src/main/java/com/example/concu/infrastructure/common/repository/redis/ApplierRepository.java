@@ -1,4 +1,4 @@
-package com.example.concu.infrastructure.common.redis;
+package com.example.concu.infrastructure.common.repository.redis;
 
 import com.example.concu.infrastructure.applier.entity.Applier;
 import org.springframework.data.redis.repository.configuration.EnableRedisRepositories;

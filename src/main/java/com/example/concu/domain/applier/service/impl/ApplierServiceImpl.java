@@ -1,15 +1,15 @@
 package com.example.concu.domain.applier.service.impl;
 
+import com.example.concu.application.redis.BaseRedisQueue;
 import com.example.concu.application.service.CampaignApplicationService;
+import com.example.concu.domain.applier.service.ApplierService;
+import com.example.concu.infrastructure.applier.entity.Applier;
 import com.example.concu.infrastructure.applier.entity.ApplierUser;
 import com.example.concu.infrastructure.applier.enums.ApplierUserStatus;
-import com.example.concu.presentation.dto.ReqApply;
-import com.example.concu.infrastructure.applier.entity.Applier;
 import com.example.concu.infrastructure.applier.repository.ApplierUserRepository;
-import com.example.concu.domain.applier.service.ApplierService;
 import com.example.concu.infrastructure.campaign.entity.Campaign;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.example.concu.presentation.dto.ReqApply;
+import com.example.concu.utils.GsonUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
@@ -18,11 +18,11 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SessionCallback;
-import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -35,9 +35,7 @@ public class ApplierServiceImpl implements ApplierService {
     private final RedisTemplate redisTemplate;
     private final RedissonClient redissonClient;
     private final CampaignApplicationService campaignQueryService;
-    private final ObjectMapper objectMapper;
     private final ApplierUserRepository applierUserRepository;
-
 
     /**
      * 지원하기
@@ -48,15 +46,12 @@ public class ApplierServiceImpl implements ApplierService {
     @Override
     @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
     public Long apply(ReqApply req) throws Exception {
-        // Redis Sorted Set
-        ZSetOperations<String, Object> zSetOperations = redisTemplate.opsForZSet();
-
         Long campaignId = req.getCampaignId();
-        LocalDateTime now = LocalDateTime.now();
         String key = "applier:apply:" + req.getCampaignId();
         log.info("campaignId: {}, Redis key: {}", campaignId, key);
 
         // 캠페인 정보 조회
+        BaseRedisQueue applierQueue = new BaseRedisQueue(redisTemplate, key);
         Campaign campaign = applyToCampaign(campaignId);
         Long maxApplierCount = campaign.getMaxApplierCount();
         log.info("maxApplierCount: {}", maxApplierCount);
@@ -66,38 +61,32 @@ public class ApplierServiceImpl implements ApplierService {
         // 락을 획득하기 위해 10초 대기
         try {
             if (isLocked) {
-                Set<Object> alreadyCampaignApply = zSetOperations.range(key, 0, maxApplierCount);
+                // SortedSet 큐 확인
+                Set<String> alreadyCampaignApply = applierQueue.rangeByKeyAndSize(key, maxApplierCount);
+                // 이미 신청한 사람이 maxApplierCount 보다 많은지 확인
                 if (alreadyCampaignApply.size() >= maxApplierCount) {
                     throw new Exception("이미 신청이 마감되었습니다.");
                 }
-                Integer rank = 1;
-                Set<Object> alreadyCampaignApplyLast = zSetOperations.range(key, alreadyCampaignApply.size() - 1, alreadyCampaignApply.size());
-                if(!alreadyCampaignApplyLast.isEmpty()) {
-                    Applier applierLast = null;
-                    try {
-                        applierLast = objectMapper.readValue(alreadyCampaignApplyLast.iterator().next().toString(), Applier.class);
-                    } catch (JsonProcessingException e) {
-                        e.printStackTrace();
-                    }
-                    if(applierLast.getMemberId().equals(req.getMemberId())) {
+                // 이미 신청한 사람이 있는지 확인
+                for(String applierString:alreadyCampaignApply) {
+                    Applier applier = GsonUtils.fromJson(applierString, Applier.class);
+                    if(applier.getMemberId().equals(req.getMemberId()))
                         throw new Exception("이미 신청하셨습니다.");
-                    }
-                    rank = applierLast.getRank() + 1;
                 }
 
                 Applier applier = Applier.builder()
-                        .rank(rank)
+                        .score(Instant.now().toEpochMilli())
                         .campaignId(req.getCampaignId())
                         .memberId(req.getMemberId())
                         .name(req.getName())
-                        .applyTime(now)
+                        .applyTime(LocalDateTime.now())
                         .applierUserStatus(ApplierUserStatus.ACTIVE)
                         .build();
 
                 // 지원자 정보 DB 저장
                 createApplierUser(applier);
                 // 지원자 정보 Redis 저장
-                addApplierToQueue(key, applier, rank);
+                addApplierToQueue(key, applier);
 
             } else {
                 // 락을 획득하지 못한 경우
@@ -110,8 +99,8 @@ public class ApplierServiceImpl implements ApplierService {
         }
 
         // Redis 해당 key 총 size 반환
-        if(zSetOperations.size(key) != null) {
-            return zSetOperations.size(key);
+        if(applierQueue.getSize(key) != null) {
+            return applierQueue.getSize(key);
         } else {
             return Long.valueOf(0);
         }
@@ -138,16 +127,16 @@ public class ApplierServiceImpl implements ApplierService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void addApplierToQueue(String key, Applier applier, Integer rank) {
+    public void addApplierToQueue(String key, Applier applier) {
+        // 키에 해당하는 큐에 지원자 정보 저장 or 롤백
         redisTemplate.execute(new SessionCallback<Object>() {
             @Override
             public Object execute(RedisOperations operations) throws DataAccessException {
                 operations.multi();
                 try {
-                    operations.opsForZSet().add(key, objectMapper.writeValueAsString(applier), rank);
-                } catch (JsonProcessingException e) {
-                    operations.discard();
-                    throw new RuntimeException("Failed to add applier to queue.", e);
+                    // key = applier:apply:campaignId, value = 지원자 정보, score = 지원자 신청 시간
+                    BaseRedisQueue applierQueue = new BaseRedisQueue(redisTemplate, key);
+                    applierQueue.enqueueObj(applier, applier.getScore());
                 } catch (Exception e) {
                     operations.discard();
                     e.printStackTrace();
